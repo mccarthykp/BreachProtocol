@@ -1,3 +1,5 @@
+An implementation inspired by the Breach Protocol Quickhack in Cyberpunk 2077.
+
 Breach Protocol is a specific kind of Quickhack that uploads Daemons onto a network. When you have a Cyberdeck, you can perform Quickhacks. Quickhacks work so long as you have RAM to pull it off. The default Quickhack that every Cyberdeck has is Breach Protocol. Breach Protocol breaks through a network's security and uploads Daemons. Daemons are programs that affect everything on the network for a period of time. Which Daemons get uploaded is determined by which sequences you complete successfully. You might see network security referred to as Intrusion Countermeasures Electronics (ICE), such as with ICEPick Quickhack Daemon. Networks are more geographical than an actual network of interconnected devices. Networks are made up of all people and devices in a location. You'll use Breach Protocol to decode Encrypted Shards or access networks. 
 
 You’ll see a list of Daemons available to upload during Breach Protocol. Each Daemon comes with a sequence of characters that you’ll need to slot into your buffer via the matrix — in order — to upload it and gain its effect.
