@@ -1,5 +1,5 @@
 // generateMatrix.ts
-export function generateMatrixSequence(gridSize: number): string[][] {
+export function generateMatrix(gridSize: number): string[][] {
   // Dynamically generate matrix with codes
   const matrix: string[][] = [];
   // Available codes

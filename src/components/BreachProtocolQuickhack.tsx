@@ -1,14 +1,16 @@
 // BreachProtocolQuickhack.tsx
 import React, { useState, useCallback, useEffect } from 'react';
-import { generateMatrixSequence } from '../utilities/generateMatrix';
+import { generateMatrix } from '../utilities/generateMatrix';
 import { generateDaemons } from '../utilities/generateDaemons';
 import { validateSequence } from '../utilities/validateSequence';
 import { uploadDaemons } from '../utilities/uploadDaemons';
 import { Daemon } from '../types';
 
+///////////////////////////////////////////////////////////////////////////////
 const BreachProtocolQuickhack: React.FC = () => {
-  const gridSize = 5; // 5x5 grid
+  const gridSize = 5; // nxn grid
   const bufferSize = 6; // Default buffer size
+  const daemonCount = 3; // Number of Daemons
 
   const [matrix, setMatrix] = useState<string[][]>([]);
   const [buffer, setBuffer] = useState<string[]>([]);
@@ -19,28 +21,30 @@ const BreachProtocolQuickhack: React.FC = () => {
   const [currentStep, setCurrentStep] = useState('row');
 
   useEffect(() => {
-    setMatrix(generateMatrixSequence(gridSize));
-    const daemonsData: Daemon[] = generateDaemons();
+    setMatrix(generateMatrix(gridSize));
+    const daemonsData: Daemon[] = generateDaemons(bufferSize, daemonCount);
     // Set daemons state with array of Daemon objects
     setDaemons(daemonsData);
 
     setCurrentStep('row');
     // setCurrentPosition({ row: 0, column: 0 }); 
-  }, [gridSize]);
+  }, [bufferSize, daemonCount, gridSize]);
 
+  ///////////////////////////////////////////////////////////////////////////////
   const resetGame = useCallback(() => {
     setBuffer([]);
     setFeedback('Select a code from the first row');
   }, []);
 
+  ///////////////////////////////////////////////////////////////////////////////
   const handleCellClick = useCallback((row: number, column: number) => {
     console.log('Clicked Cell:', { row, column });
     console.log('Current Position:', currentPosition);
     console.log('Current Step:', currentStep);
 
     if (buffer.length >= bufferSize) {
-      // Buffer is full, do not allow further selection
-      setFeedback('://BUFFER IS FULL. UPLOAD DAEMONS TO CONTINUE');
+      // If buffer is full, do not allow further selection
+      setFeedback('// BUFFER IS FULL. UPLOAD DAEMONS TO CONTINUE');
       return;
     }
 
@@ -67,6 +71,7 @@ const BreachProtocolQuickhack: React.FC = () => {
     }
   }, [currentPosition, currentStep, buffer.length, matrix]);
 
+  ///////////////////////////////////////////////////////////////////////////////
   const uploadSelectedDaemons = useCallback(() => {
     if (buffer.length === 0) {
       setFeedback('BUFFER IS EMPTY. SELECT CHARACTERS TO UPLOAD DAEMONS.');
@@ -78,30 +83,39 @@ const BreachProtocolQuickhack: React.FC = () => {
       return;
     }
   
-    const uploadedDaemons = uploadDaemons(buffer, daemons); // Assuming uploadDaemons returns an array of uploaded Daemon objects
-    const uploadedDaemonNames = uploadedDaemons.map(daemon => daemon.name); // Extract Daemon names
-    const remainingDaemons = daemons.filter(daemon => !uploadedDaemons.includes(daemon)); // Filter out uploaded Daemons
-    setDaemons(remainingDaemons); // Update daemons state with remaining Daemons
+    // uploadDaemons returns an array of uploaded Daemon objects
+    const uploadedDaemons = uploadDaemons(buffer, daemons);
+    // Extract Daemon names
+    const uploadedDaemonNames = uploadedDaemons.map(daemon => daemon.name);
+    // Filter out uploaded Daemons
+    const remainingDaemons = daemons.filter(daemon => !uploadedDaemons.includes(daemon));
+    // Update daemons state with remaining Daemons
+    setDaemons(remainingDaemons);
     setFeedback(`Uploaded Daemons: ${uploadedDaemonNames.join(', ')}.`);
     resetGame();
   }, [buffer, bufferSize, daemons, resetGame]);
 
+  ///////////////////////////////////////////////////////////////////////////////
   const handleMouseEnter = (row: number, column: number) => {
     // Only apply hover effect if it matches the current selection step
     if (
-      (currentStep === 'row' && currentPosition.row === row) || // If hovering a row during row selection
-      (currentStep === 'column' && currentPosition.column === column) // If hovering a column during column selection
+      // If hovering a row during row selection
+      (currentStep === 'row' && currentPosition.row === row) ||
+      // If hovering a column during column selection
+      (currentStep === 'column' && currentPosition.column === column)
     ) {
       setHoveredCell({ row, column });
     }
   };
   
   const handleMouseLeave = () => {
-    setHoveredCell(null); // Reset the hoveredCell
+    // Reset the hoveredCell
+    setHoveredCell(null);
   };
-
+  ///////////////////////////////////////////////////////////////////////////////
   return (
     <>
+      {/* ///////////////////////////////////////////////////////////////////////////// */}
       <section className='flex flex-col min-h-screen bg-neutral-950 select-none'>
         {/* ///////////////////////////////////////////////////////////////////////////// */}
         <div className='mt-80'>
@@ -166,15 +180,16 @@ const BreachProtocolQuickhack: React.FC = () => {
         </div>
         {/* ///////////////////////////////////////////////////////////////////////////// */}
         <div className='w-full'>
+          {/* ///////////////////////////////////////////////////////////////////////////// */}
           <div className='flex-col text-white'>
             <h2 className='text-2xl p-4 font-orbitron tracking-wide text-center w-fit mx-auto'>DAEMONS</h2>
             <div className='w-fit mx-auto my-2'>
               {daemons.map((daemon, index) => (
                 <div key={index} className='flex font-rajdhani'>
-                  <p className='text-lg w-32 tracking-widest pr-5'>
+                  <p className='text-lg w-40 tracking-widest pr-5'>
                     {[...daemon.sequence].join(' ')}
                   </p>
-                  <div className='text-left w-32 tracking-wide pl-5'>
+                  <div className='text-left w-30 tracking-wide pl-5'>
                     <h3 className='text-lg'>{daemon.name}</h3>
                   </div>
                 </div>
@@ -182,6 +197,7 @@ const BreachProtocolQuickhack: React.FC = () => {
             </div>
           </div>
 
+          {/* ///////////////////////////////////////////////////////////////////////////// */}
           <div className='flex flex-col'>
             <button
               className='rounded-md bg-red-900 text-sm font-orbitron font-bold py-3 px-6 min-w-fit max-w-fit self-center mt-6 hover:bg-red-950 transition-colors duration-300 tracking-wide'
@@ -190,7 +206,9 @@ const BreachProtocolQuickhack: React.FC = () => {
                 UPLOAD DAEMONS
             </button>
           </div>
+          {/* ///////////////////////////////////////////////////////////////////////////// */}
         </div>
+        {/* ///////////////////////////////////////////////////////////////////////////// */}
       </section>
     </>
   );
