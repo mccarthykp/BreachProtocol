@@ -1,9 +1,8 @@
 // BreachProtocolQuickhack.tsx
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { generateMatrix } from '../utilities/generateMatrix';
 import { generateDaemons } from '../utilities/generateDaemons';
-import { validateSequence } from '../utilities/validateSequence';
-import { uploadDaemons } from '../utilities/uploadDaemons';
+import { verifyDaemons } from '../utilities/verifyDaemons';
 import { Daemon } from '../types';
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -11,107 +10,103 @@ const BreachProtocolQuickhack: React.FC = () => {
   const gridSize = 5; // nxn grid
   const bufferSize = 6; // Default buffer size
   const daemonCount = 3; // Number of Daemons
-
   const [matrix, setMatrix] = useState<string[][]>([]);
-  const [buffer, setBuffer] = useState<string[]>([]);
   const [daemons, setDaemons] = useState<Daemon[]>([]);
-  const [feedback, setFeedback] = useState<string>('SELECT A CODE FROM THE FIRST ROW');
-  const [hoveredCell, setHoveredCell] = useState<{ row: number, column: number } | null>(null);
-  const [currentPosition, setCurrentPosition] = useState({ row: 0, column: 0 }); 
-  const [currentStep, setCurrentStep] = useState('row');
 
+  const [bufferValues, setBufferValues] = useState<string[]>([]);
+  const [bufferFeedback, setBufferFeedback] = useState('// SELECT A CODE FROM THE FIRST ROW');
+
+  const uploadedDaemonNamesRef = useRef('');
+  const [uploadedDaemonNames, setUploadedDaemonNames] = useState('');
+
+  ///////////////////////////////////////////////////////////////////////////////
   useEffect(() => {
     setMatrix(generateMatrix(gridSize));
-    const daemonsData: Daemon[] = generateDaemons(bufferSize, daemonCount);
-    // Set daemons state with array of Daemon objects
-    setDaemons(daemonsData);
-
-    setCurrentStep('row');
-    // setCurrentPosition({ row: 0, column: 0 }); 
+    setDaemons(generateDaemons(bufferSize, daemonCount));
   }, [bufferSize, daemonCount, gridSize]);
 
   ///////////////////////////////////////////////////////////////////////////////
   const resetGame = useCallback(() => {
-    setBuffer([]);
-    setFeedback('Select a code from the first row');
-  }, []);
+    // Generate a new matrix
+    setMatrix(generateMatrix(gridSize));
+    // Generate new Daemons
+    setDaemons(generateDaemons(bufferSize, daemonCount));
+    
+    setBufferValues([]);
+    setBufferFeedback('// SELECT A CODE FROM THE FIRST ROW');
+    // Reset ref value
+    uploadedDaemonNamesRef.current = '';
+    setUploadedDaemonNames('');
+  }, [gridSize, bufferSize, daemonCount]);
 
   ///////////////////////////////////////////////////////////////////////////////
   const handleCellClick = useCallback((row: number, column: number) => {
     console.log('Clicked Cell:', { row, column });
-    console.log('Current Position:', currentPosition);
-    console.log('Current Step:', currentStep);
 
-    if (buffer.length >= bufferSize) {
-      // If buffer is full, do not allow further selection
-      setFeedback('// BUFFER IS FULL. UPLOAD DAEMONS TO CONTINUE');
+    // If Daemons have already been uploaded, game ends
+    // if (uploadedDaemonNames) {
+    //   setBufferFeedback('// UPLOAD COMPLETE');
+    //   setUploadedDaemonNames(uploadedDaemonNames);
+    //   return;
+    // }
+
+    // If buffer is full, game ends
+    if (bufferValues.length >= bufferSize) {
+      setBufferFeedback('// BUFFER IS FULL');
       return;
-    }
+      // If buffer is not full, add selected code to buffer
+    } else {
 
-    if (
-      (currentStep === 'row' && currentPosition.column === column) ||
-      (currentStep === 'column' && currentPosition.row === row)
-    ) {
       const selectedCharacter = matrix[row][column];
 
-      setBuffer(prevBuffer => {
-        const newBuffer = [...prevBuffer, selectedCharacter];
-        if (newBuffer.length === bufferSize) {
-          setFeedback('// BUFFER IS FULL. UPLOAD DAEMONS TO CONTINUE');
+      setBufferValues(prevBufferValues => {
+        const newBufferValues = [...prevBufferValues, selectedCharacter];
+        if (newBufferValues.length === bufferSize) {
+          setBufferFeedback('// BUFFER IS FULL');
         } else {
-          setFeedback('// BREACH PROTOCOL IN PROCESS . .');
+          setBufferFeedback('// BREACH PROTOCOL IN PROCESS . .');
         }
-        return newBuffer;
+        return newBufferValues;
       });
-
-      setCurrentPosition({ row, column });
-      setCurrentStep(currentStep === 'column' ? 'row' : 'column');
-    } else {
-      setFeedback('INVALID SELECTION');
     }
-  }, [currentPosition, currentStep, buffer.length, matrix]);
+  }, [bufferValues.length, matrix]);
 
   ///////////////////////////////////////////////////////////////////////////////
-  const uploadSelectedDaemons = useCallback(() => {
-    if (buffer.length === 0) {
-      setFeedback('BUFFER IS EMPTY. SELECT CHARACTERS TO UPLOAD DAEMONS.');
+  const uploadVerifiedDaemons = useCallback(() => {
+    // If buffer is empty, do nothing
+    if (bufferValues.length === 0) {
+      setBufferFeedback('// BUFFER IS EMPTY, SELECT CODES TO UPLOAD DAEMONS');
       return;
     }
-  
-    if (!validateSequence(buffer, bufferSize)) {
-      setFeedback('INVALID BUFFER SIZE. SELECT CHARACTERS TO UPLOAD DAEMONS.');
+
+    // verifyDaemons returns an array of solved Daemon objects
+    const verifiedDaemons = verifyDaemons(bufferValues, daemons);
+
+    if (verifiedDaemons.length === 0 && uploadedDaemonNamesRef.current === '') {
+      setBufferFeedback('// UPLOAD DENIED, NO DAEMONS SOLVED');
       return;
     }
-  
-    // uploadDaemons returns an array of uploaded Daemon objects
-    const uploadedDaemons = uploadDaemons(buffer, daemons);
+
+    // If user hasn't solved another Daemon, deny upload
+    if (verifiedDaemons.length === 0 && uploadedDaemonNamesRef.current !== '') {
+      setBufferFeedback('// UPLOAD DENIED, NO ADDITIONAL DAEMONS SOLVED');
+      return;
+    }
+    
     // Extract Daemon names
-    const uploadedDaemonNames = uploadedDaemons.map(daemon => daemon.name);
-    // Filter out uploaded Daemons
-    const remainingDaemons = daemons.filter(daemon => !uploadedDaemons.includes(daemon));
-    // Update daemons state with remaining Daemons
+    const newUploadedDaemonNames = verifiedDaemons.map(daemon => daemon.name).join(', ');
+    // Update the ref with new names
+    uploadedDaemonNamesRef.current += (uploadedDaemonNamesRef.current ? ', ' : '') + newUploadedDaemonNames;
+    // Filter out uploaded daemons from the remaining daemons
+    const remainingDaemons = daemons.filter(daemon => !verifiedDaemons.includes(daemon));
+    // Update daemons state with remaining daemons
     setDaemons(remainingDaemons);
-    setFeedback(`Uploaded Daemons: ${uploadedDaemonNames.join(', ')}.`);
-    resetGame();
-  }, [buffer, bufferSize, daemons, resetGame]);
 
-  ///////////////////////////////////////////////////////////////////////////////
-  const handleMouseEnter = (row: number, column: number) => {
-    // Only apply hover effect if it matches the current selection step
-    if (
-      // If hovering a row during row selection
-      (currentStep === 'row' && currentPosition.row === row) ||
-      // If hovering a column during column selection
-      (currentStep === 'column' && currentPosition.column === column)
-    ) {
-      setHoveredCell({ row, column });
-    }
-  };
-  
-  const handleMouseLeave = () => {
-    // Reset the hoveredCell
-    setHoveredCell(null);
-  };
+    setBufferFeedback('// UPLOAD COMPLETE');
+    setUploadedDaemonNames(`UPLOADED DAEMONS: ${uploadedDaemonNamesRef.current}`);
+
+  }, [bufferValues, daemons]);
+
   ///////////////////////////////////////////////////////////////////////////////
   return (
     <>
@@ -120,8 +115,8 @@ const BreachProtocolQuickhack: React.FC = () => {
         {/* ///////////////////////////////////////////////////////////////////////////// */}
         <div className='mt-80'>
           <h2 className={`font-orbitron tracking-wide text-2xl text-lime-200 text-center w-60 mx-auto p-4
-            ${buffer.length === bufferSize ? 'text-red-600' : ''}`}>
-              Buffer : {bufferSize - buffer.length}
+            ${bufferValues.length === bufferSize ? 'text-red-600' : ''}`}>
+              Buffer : {bufferSize - bufferValues.length}
           </h2>
 
           <div className='relative h-20 w-full'>
@@ -130,23 +125,30 @@ const BreachProtocolQuickhack: React.FC = () => {
                 <div
                   key={index}
                   className={`outline outline-2 outline-cyan-500 shadow-lg shadow-cyan-950 rounded-md px-4 py-4 m-2 text-cyan-400 w-16 h-16 flex justify-center items-center ${
-                    buffer[index] ? '' : 'opacity-20 shadow-none'
+                    bufferValues[index] ? '' : 'opacity-20 shadow-none'
                   }`}
                 >
-                  {buffer[index] || ''}
+                  {bufferValues[index] || ''}
                 </div>
               ))}
             </div>
           </div>
-
-          <p 
-            className={`w-full text-center font-rajdhani font-thin text-white p-4
-              ${buffer.length === bufferSize ? 'text-red-600' : ''}`}
-            >
-              {feedback}
-          </p>
         </div>
         {/* ///////////////////////////////////////////////////////////////////////////// */}
+        <div 
+          className='w-94 flex-col pt-4 font-rajdhani font-thin text-xxs text-lime-100 mx-auto'>
+            <p className={`tracking-widest 
+              ${uploadedDaemonNames ? 'text-lime-100' : 'text-neutral-500'}`}
+            >
+              {uploadedDaemonNames || 'UPLOADED DAEMONS : '}
+            </p>
+            <p className={`tracking-wide pb-1
+              ${bufferValues.length >= bufferSize && bufferFeedback !== '// UPLOAD COMPLETE' ? 'text-red-600' : ''}
+              ${bufferFeedback === '// UPLOAD DENIED, NO DAEMONS SOLVED' ? 'text-red-600' : ''}`}
+            >
+              {bufferFeedback}
+            </p>
+        </div>
         <div className='text-center font-rajdhani font-medium tracking-widest text-2xl mx-auto outline outline-1 outline-lime-200 rounded-sm bg-neutral-950 p-4'>
           {matrix.map((row, rowIndex) => (
             <div key={rowIndex} className='flex'>
@@ -157,17 +159,11 @@ const BreachProtocolQuickhack: React.FC = () => {
                   <span
 
                     className={`flex text-lime-200 cursor-pointer hover:text-cyan-300 hover:outline hover:outline-1 hover:outline-cyan-300 hover:shadow-lg hover:shadow-cyan-950 justify-evenly items-center w-16 h-16
-
-                      ${currentStep === 'row' && currentPosition.row === rowIndex ? 'bg-gray-800 bg-opacity-35' : ''}
-                      ${currentStep === 'column' && currentPosition.column === columnIndex ? 'bg-gray-800 bg-opacity-35' : ''}
-                      ${currentStep === 'row' && hoveredCell && hoveredCell.column === columnIndex ? 'bg-lime-300 bg-opacity-5' : ''}
-                      ${currentStep === 'column' && hoveredCell && hoveredCell.row === rowIndex ? 'bg-lime-300 bg-opacity-5' : ''}
-                      
                     `}
 
                     onClick={() => handleCellClick(rowIndex, columnIndex)}
-                    onMouseEnter={() => handleMouseEnter(rowIndex, columnIndex)}
-                    onMouseLeave={handleMouseLeave}
+                    // onMouseEnter={() => handleMouseEnter(rowIndex, columnIndex)}
+                    // onMouseLeave={handleMouseLeave}
                   >
                     <div>
                       {code}
@@ -181,11 +177,12 @@ const BreachProtocolQuickhack: React.FC = () => {
         {/* ///////////////////////////////////////////////////////////////////////////// */}
         <div className='w-full'>
           {/* ///////////////////////////////////////////////////////////////////////////// */}
-          <div className='flex-col text-white'>
+          <div className='flex-col text-white h-44'>
             <h2 className='text-2xl p-4 font-orbitron tracking-wide text-center w-fit mx-auto'>DAEMONS</h2>
             <div className='w-fit mx-auto my-2'>
               {daemons.map((daemon, index) => (
-                <div key={index} className='flex font-rajdhani'>
+                <div key={index} 
+                  className='flex font-rajdhani text-neutral-300'>
                   <p className='text-lg w-40 tracking-widest pr-5'>
                     {[...daemon.sequence].join(' ')}
                   </p>
@@ -200,10 +197,16 @@ const BreachProtocolQuickhack: React.FC = () => {
           {/* ///////////////////////////////////////////////////////////////////////////// */}
           <div className='flex flex-col'>
             <button
-              className='rounded-md bg-red-900 text-sm font-orbitron font-bold py-3 px-6 min-w-fit max-w-fit self-center mt-6 hover:bg-red-950 transition-colors duration-300 tracking-wide'
-              onClick={uploadSelectedDaemons}
+              className='rounded-md bg-red-900 text-sm font-orbitron font-bold py-3 px-6 min-w-fit max-w-fit self-center mt-4 hover:bg-red-950 transition-colors duration-200 tracking-wide'
+              onClick={uploadVerifiedDaemons}
             >
                 UPLOAD DAEMONS
+            </button>
+            <button
+              className='rounded-md outline outline-neutral-800 text-sm text-neutral-700 font-orbitron font-bold py-3 px-6 min-w-fit max-w-fit self-center mt-6 hover:outline-neutral-700 hover:text-neutral-500 transition-all duration-200 tracking-wide'
+              onClick={resetGame}
+            >
+                RESET GAME
             </button>
           </div>
           {/* ///////////////////////////////////////////////////////////////////////////// */}

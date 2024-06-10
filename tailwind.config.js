@@ -10,14 +10,13 @@ export default {
         rajdhani: ['Rajdhani'],
         orbitron: ['Orbitron'],
       },
-      textUnderlineOffset: {
-        9: '9px',
-        10: '10px',
-        11: '11px',
-        12: '12px',
+      fontSize: {
+        xxs: '0.675rem',
+      },
+      spacing: {
+        '94': '22rem',
       },
     },
   },
   plugins: [],
 }
-

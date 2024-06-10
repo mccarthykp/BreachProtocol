@@ -1,8 +1,8 @@
-// // uploadDaemons.ts
+// // verifyDaemons.ts
 import { Daemon } from '../types';
 
-export function uploadDaemons(buffer: string[], daemons: Daemon[]): Daemon[] {
-  const uploadedDaemons: Daemon[] = [];
+export function verifyDaemons(buffer: string[], daemons: Daemon[]): Daemon[] {
+  const verifiedDaemons: Daemon[] = [];
 
   // Check if arrays are equal
   function arraysEqual(arr1: string[], arr2: string[]): boolean {
@@ -29,9 +29,8 @@ export function uploadDaemons(buffer: string[], daemons: Daemon[]): Daemon[] {
 
   for (const daemon of daemons) {
     if (isSubarray(buffer, daemon.sequence)) {
-      uploadedDaemons.push(daemon);
+      verifiedDaemons.push(daemon);
     }
   }
-  
-  return uploadedDaemons;
+  return verifiedDaemons;
 }
