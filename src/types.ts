@@ -5,6 +5,7 @@ export interface Position {
 }
 
 export interface Daemon {
+  id: number;
   name: string;
   sequence: string[];
 }
