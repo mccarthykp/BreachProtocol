@@ -1,4 +1,10 @@
-// generateMatrix.ts
+// utilities/generateMatrix.ts
+
+/**
+ * Generates a matrix of random codes based on the specified grid size.
+ * @param {number} gridSize - The size of the grid (number of rows and columns) for the matrix.
+ * @returns {string[][]} - A matrix containing randomly generated codes.
+ */
 export function generateMatrix(gridSize: number): string[][] {
   // Dynamically generate matrix with codes
   const matrix: string[][] = [];
