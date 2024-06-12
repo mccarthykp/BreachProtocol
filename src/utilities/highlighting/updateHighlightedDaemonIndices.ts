@@ -1,6 +1,6 @@
 // utilities/updateHighlightedDaemonIndices.ts
 
-import { Daemon, HighlightedDaemonIndex } from '../types';
+import { Daemon, HighlightedDaemonIndex } from '../../types';
 
 /**
  * Update highlighted daemon indices based on new buffer codes.
