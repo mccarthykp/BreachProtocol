@@ -7,7 +7,7 @@ import {
   addToBuffer,
   updateBufferFeedback,
 } from "../utilities/bufferUtils";
-import { updateHighlightedDaemonIndices } from "../utilities/highlighting/updateHighlightedDaemonIndices";
+import { updateHighlightedDaemonIndices } from "../utilities/updateHighlightingUtils";
 import { Daemon } from "../types";
 
 ///////////////////////////////////////////////////////////////////////////////
