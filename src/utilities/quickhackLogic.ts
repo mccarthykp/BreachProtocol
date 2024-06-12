@@ -1,19 +1,18 @@
-// gameLogic.ts
-import { Position, Daemon } from '../types';
+// utilities/quickhackLogic.ts
 
-export function isValidMove(position: Position, currentStep: 'row' | 'column', currentPosition: Position): boolean {
-  if (currentStep === 'row') {
-    return position.row === currentPosition.row;
-  } else {
-    return position.column === currentPosition.column;
-  }
-}
+// import { Position } from '../types';
 
-export function checkDaemons(userSequence: string[], daemons: Daemon[], resetGame: () => void): void {
-  daemons.forEach(daemon => {
-    if (userSequence.join(',') === daemon.sequence.join(',')) {
-      alert(`Unlocked ${daemon.name}`);
-      resetGame();
-    }
-  });
-}
+// /**
+//  * Checks if a move to a given position in the grid is valid based on the current step (row or column) and the current position.
+//  * @param {Position} position - The position to check the validity of the move.
+//  * @param {'row' | 'column'} currentStep - The current step of the game, either 'row' or 'column'.
+//  * @param {Position} currentPosition - The current position in the grid.
+//  * @returns {boolean} - True if the move is valid, false otherwise.
+//  */
+// export function isValidMove(position: Position, currentStep: 'row' | 'column', currentPosition: Position): boolean {
+//   if (currentStep === 'row') {
+//     return position.row === currentPosition.row;
+//   } else {
+//     return position.column === currentPosition.column;
+//   }
+// }
