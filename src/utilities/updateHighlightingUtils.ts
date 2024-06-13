@@ -1,25 +1,7 @@
-// utilities/updateHighlightedDaemonIndices.ts
+// utilities/updateHighlightingUtils.ts
 
 import { Daemon, HighlightedDaemonIndex } from '../types';
 
-///////////////////////////////////////////////////////////////////////////////
-// export function updateMatrixHighlighting(
-//   position, currentLine, nextLine): {
-//   return;
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////
 /**
  * Update highlighted daemon indices based on new buffer codes.
  * @param newBufferCodes The new buffer codes to update with.
