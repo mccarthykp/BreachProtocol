@@ -15,3 +15,8 @@ export interface HighlightedDaemonIndex {
   daemonId: number;
   sequenceIndex: number;
 }
+
+export interface Position {
+  row: number;
+  column: number;
+}

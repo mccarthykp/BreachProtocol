@@ -8,7 +8,8 @@ import {
   updateBufferFeedback,
 } from "../utilities/bufferUtils";
 import { updateHighlightedDaemonIndices } from "../utilities/updateHighlightingUtils";
-import { Daemon } from "../types";
+import { isValidSelection } from '../utilities/quickhackLogic';
+import { Daemon, Position } from "../types";
 
 ///////////////////////////////////////////////////////////////////////////////
 const BreachProtocolQuickhack: React.FunctionComponent = () => {
@@ -30,6 +31,10 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
     { daemonId: number; sequenceIndex: number }[]
   >([]);
 
+  const [currentStep, setCurrentStep] = useState<'row' | 'column'>('row');
+  const [currentPosition, setCurrentPosition] = useState<Position>({ row: 0, column: 0 });
+  const [highlightedCells, setHighlightedCells] = useState<{ row: number, column: number }[]>([]);
+  
   ///////////////////////////////////////////////////////////////////////////////
   useEffect(() => {
     setMatrix(generateMatrix(gridSize));
@@ -46,8 +51,12 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
     setBufferFeedback("// SELECT A CODE FROM THE FIRST ROW");
     uploadedDaemonNamesRef.current = "";
     setUploadedDaemonNames("");
+    setCurrentStep('row');
+    setCurrentPosition({row: 0, column: 0});
     // Clear all highlighted Daemon indices per Daemon.id
     setHighlightedDaemonIndices([]);
+    // Reset highlighted matrix cells
+    setHighlightedCells([]);
   }, [gridSize, bufferSize, daemonCount]);
 
   ///////////////////////////////////////////////////////////////////////////////
@@ -59,23 +68,71 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
         return;
       }
 
-      const selectedCode = matrix[row][column];
-      const newBufferCodes = addToBuffer(bufferCodes, selectedCode);
-      const newHighlightedDaemonIndices = updateHighlightedDaemonIndices(
-        newBufferCodes,
-        daemons,
-        highlightedDaemonIndices
-      );
-      const feedback = updateBufferFeedback(newBufferCodes, bufferSize);
+      if (isValidSelection({row, column}, currentStep, currentPosition) === true) {
+        // Update current position
+        setCurrentPosition({ row, column });
+        // Toggle between 'row' and 'column' for currentStep
+        setCurrentStep(prevStep => (prevStep === 'row' ? 'column' : 'row'));
+        const selectedCode = matrix[row][column];
 
-      // Add the selected code to the buffer
-      setBufferCodes(newBufferCodes);
-      // Highlight the appropriate indices based on the new buffer codes
-      setHighlightedDaemonIndices(newHighlightedDaemonIndices);
-      // Update the game feedback accordingly
-      setBufferFeedback(feedback);
+        const newBufferCodes = addToBuffer(bufferCodes, selectedCode);
+        const newHighlightedDaemonIndices = updateHighlightedDaemonIndices(
+          newBufferCodes,
+          daemons,
+          highlightedDaemonIndices
+        );
+        const feedback = updateBufferFeedback(newBufferCodes, bufferSize);
+
+        // Add the selected code to the buffer
+        setBufferCodes(newBufferCodes);
+        // Highlight the appropriate indices based on the new buffer codes
+        setHighlightedDaemonIndices(newHighlightedDaemonIndices);
+        // Update the game feedback accordingly
+        setBufferFeedback(feedback);
+        // Highlight entire row or column based on currentStep
+        if (currentStep === 'column') {
+          // Highlight entire row of clicked cell
+          const newHighlightedCells = Array.from({ length: matrix[row].length }, (_, col) => ({ row, column: col }));
+          setHighlightedCells(newHighlightedCells);
+        } else if (currentStep === 'row') {
+          // Highlight entire column of clicked cell
+          const newHighlightedCells = Array.from({ length: matrix.length }, (_, r) => ({ row: r, column }));
+          setHighlightedCells(newHighlightedCells);
+        }
+        
+      } else {
+        if (bufferCodes.length === 0) {
+          setBufferFeedback('// INVALID SELECTION. SELECT A CODE FROM THE FIRST ROW');
+          return;
+        }
+        if (currentStep === 'row') {
+          setBufferFeedback('// INVALID SELECTION. SELECT A CODE IN THE ACTIVE ROW');
+        } else {
+          setBufferFeedback('// INVALID SELECTION. SELECT A CODE IN THE ACTIVE COLUMN')
+        }
+      }
     },
-    [bufferCodes, bufferSize, daemons, highlightedDaemonIndices, matrix]
+    [bufferCodes, currentPosition, currentStep, daemons, highlightedDaemonIndices, matrix]
+  );
+  ///////////////////////////////////////////////////////////////////////////////
+  const handleCellHover = useCallback(
+    (position: Position) => {
+      // Clear previous highlighted cells
+      setHighlightedCells([]);
+  
+      if (currentStep === 'column') {
+        // Highlight entire row of hovered cell
+        for (let col = 0; col < matrix[position.row].length; col++) {
+          setHighlightedCells(prevCells => [...prevCells, { row: position.row, column: col }]);
+        }
+      } else if (currentStep === 'row') {
+        // Highlight entire column of hovered cell
+        for (let row = 0; row < matrix.length; row++) {
+          setHighlightedCells(prevCells => [...prevCells, { row: row, column: position.column }]);
+        }
+      }
+    },
+    [currentStep, matrix]
   );
 
   ///////////////////////////////////////////////////////////////////////////////
@@ -176,21 +233,28 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
         </div>
         {/* ///////////////////////////////////////////////////////////////////////////// */}
         <div className="text-center font-rajdhani font-medium tracking-widest text-2xl mx-auto outline outline-1 outline-lime-200 rounded-sm bg-neutral-950 p-4">
-          {matrix.map((row, rowIndex) => (
-            <div key={rowIndex} className="flex">
-              {row.map((code, columnIndex) => (
-                <div className="text-lime-200" key={columnIndex}>
-                  <span
-                    className={`flex text-lime-200 cursor-pointer hover:text-cyan-300 hover:outline hover:outline-1 hover:outline-cyan-300 hover:shadow-lg hover:shadow-cyan-950 justify-evenly items-center w-16 h-16`}
-                    onClick={() => handleCellClick(rowIndex, columnIndex)}
-                  >
-                    <div>{code}</div>
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+        {matrix.map((row, rowIndex) => (
+          <div key={rowIndex} className="flex">
+            {row.map((code, columnIndex) => (
+              <div className="text-lime-200" key={columnIndex}>
+                <span
+                  className={`flex text-lime-200 cursor-pointer hover:text-cyan-300 hover:outline hover:outline-1 hover:outline-cyan-300 hover:shadow-lg hover:shadow-cyan-950 justify-evenly items-center w-16 h-16 
+                    ${highlightedCells.some(cell => cell.row === rowIndex && cell.column === columnIndex) ? 'bg-lime-300 bg-opacity-5' : ''}
+                    ${rowIndex === currentPosition.row && currentStep === 'row' ? 'bg-slate-500 bg-opacity-5' : ''}
+                    ${columnIndex === currentPosition.column && currentStep === 'column' ? 'bg-slate-500 bg-opacity-5' : ''}
+                  `}
+                  onClick={() => handleCellClick(rowIndex, columnIndex)}
+                  onMouseEnter={() => handleCellHover({ row: rowIndex, column: columnIndex })}
+                  onMouseMove={() => handleCellHover({ row: rowIndex, column: columnIndex })}
+                  onMouseLeave={() => setHighlightedCells([])}
+                >
+                  <div>{code}</div>
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
         {/* ///////////////////////////////////////////////////////////////////////////// */}
         <div className="w-full">
           {/* ///////////////////////////////////////////////////////////////////////////// */}
