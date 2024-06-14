@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useReducer, useCallback, useEffect, useRef } from "react";
 import { generateMatrix } from "../utilities/generateMatrix";
 import { generateDaemons } from "../utilities/generateDaemons";
 import { verifyDaemons } from "../utilities/verifyDaemons";
@@ -9,328 +9,422 @@ import {
 } from "../utilities/bufferUtils";
 import { updateHighlightedDaemonIndices } from "../utilities/updateHighlightingUtils";
 import { isValidSelection } from '../utilities/quickhackLogic';
-import { Daemon, Position } from "../types";
+import { GameAction, GameState, Position } from "../types";
+
+///////////////////////////////////////////////////////////////////////////////
+const initialState: GameState = {
+  matrix: [],
+  daemons: [],
+  bufferCodes: [],
+  bufferFeedback: "// SELECT A CODE IN THE FIRST ROW",
+  highlightedDaemonIndices: [],
+  currentStep: 'row',
+  currentPosition: { row: 0, column: 0 },
+  highlightedCells: [],
+  installedDaemonNames: "",
+};
+
+///////////////////////////////////////////////////////////////////////////////
+const gameReducer = (state: GameState, action: GameAction): GameState => {
+  switch (action.type) {
+    case 'reset':
+      return action.payload;
+    case 'updateBufferCodes':
+      return {
+        ...state,
+        ...action.payload,
+      };
+    case 'installVerifiedDaemons':
+      return {
+        ...state,
+        ...action.payload,
+      };
+    default:
+      return state;
+  }
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 const BreachProtocolQuickhack: React.FunctionComponent = () => {
   const gridSize = 5; // nxn grid
   const bufferSize = 6; // Default buffer size
-  const daemonCount = 3; // Number of Daemons
-  const [matrix, setMatrix] = useState<string[][]>([]);
-  const [daemons, setDaemons] = useState<Daemon[]>([]);
+  const daemonCount = 1; // Number of Daemons
 
-  const [bufferCodes, setBufferCodes] = useState<string[]>([]);
-  const [bufferFeedback, setBufferFeedback] = useState<string>(
-    "// SELECT A CODE FROM THE FIRST ROW"
-  );
+  const [state, dispatch] = useReducer(gameReducer, initialState);
+  const installedDaemonNamesRef = useRef<string>("");
 
-  const uploadedDaemonNamesRef = useRef<string>("");
-  const [uploadedDaemonNames, setUploadedDaemonNames] = useState<string>("");
-
-  const [highlightedDaemonIndices, setHighlightedDaemonIndices] = useState<
-    { daemonId: number; sequenceIndex: number }[]
-  >([]);
-
-  const [currentStep, setCurrentStep] = useState<'row' | 'column'>('row');
-  const [currentPosition, setCurrentPosition] = useState<Position>({ row: 0, column: 0 });
-  const [highlightedCells, setHighlightedCells] = useState<{ row: number, column: number }[]>([]);
-  
-  ///////////////////////////////////////////////////////////////////////////////
   useEffect(() => {
-    setMatrix(generateMatrix(gridSize));
-    setDaemons(generateDaemons(bufferSize, daemonCount));
+    const newMatrix = generateMatrix(gridSize);
+    const newDaemons = generateDaemons(newMatrix, bufferSize, daemonCount);
+    dispatch({
+      type: 'reset',
+      payload: {
+        ...initialState,
+        matrix: newMatrix,
+        daemons: newDaemons
+      }
+    });
   }, [bufferSize, daemonCount, gridSize]);
 
   ///////////////////////////////////////////////////////////////////////////////
   const resetGame = useCallback(() => {
-    // Generate a new matrix
-    setMatrix(generateMatrix(gridSize));
-    // Generate new Daemons
-    setDaemons(generateDaemons(bufferSize, daemonCount));
-    setBufferCodes([]);
-    setBufferFeedback("// SELECT A CODE FROM THE FIRST ROW");
-    uploadedDaemonNamesRef.current = "";
-    setUploadedDaemonNames("");
-    setCurrentStep('row');
-    setCurrentPosition({row: 0, column: 0});
-    // Clear all highlighted Daemon indices per Daemon.id
-    setHighlightedDaemonIndices([]);
-    // Reset highlighted matrix cells
-    setHighlightedCells([]);
-  }, [gridSize, bufferSize, daemonCount]);
+    const newMatrix = generateMatrix(gridSize);
+    const newDaemons = generateDaemons(newMatrix, bufferSize, daemonCount);
+    dispatch({
+      type: 'reset',
+      payload: {
+        ...initialState,
+        matrix: newMatrix,
+        daemons: newDaemons
+      }
+    });
+  }, [bufferSize, daemonCount, gridSize]);
 
   ///////////////////////////////////////////////////////////////////////////////
   const handleCellClick = useCallback(
     (row: number, column: number) => {
-      // If the buffer is full, game ends
-      if (isBufferFull(bufferCodes, bufferSize)) {
-        setBufferFeedback("// BUFFER IS FULL");
+      if (isBufferFull(state.bufferCodes, bufferSize)) {
+        dispatch({
+          type: 'updateBufferCodes',
+          payload: { ...state, bufferFeedback: "// BUFFER IS FULL" }
+        });
         return;
       }
-
-      if (isValidSelection({row, column}, currentStep, currentPosition) === true) {
-        // Update current position
-        setCurrentPosition({ row, column });
-        // Toggle between 'row' and 'column' for currentStep
-        setCurrentStep(prevStep => (prevStep === 'row' ? 'column' : 'row'));
-        const selectedCode = matrix[row][column];
-
-        const newBufferCodes = addToBuffer(bufferCodes, selectedCode);
+  
+      if (isValidSelection({ row, column }, state.currentStep, state.currentPosition)) {
+        const selectedCode = state.matrix[row][column];
+        const newBufferCodes = addToBuffer(state.bufferCodes, selectedCode);
         const newHighlightedDaemonIndices = updateHighlightedDaemonIndices(
           newBufferCodes,
-          daemons,
-          highlightedDaemonIndices
+          state.daemons,
+          state.highlightedDaemonIndices
         );
         const feedback = updateBufferFeedback(newBufferCodes, bufferSize);
-
-        // Add the selected code to the buffer
-        setBufferCodes(newBufferCodes);
-        // Highlight the appropriate indices based on the new buffer codes
-        setHighlightedDaemonIndices(newHighlightedDaemonIndices);
-        // Update the game feedback accordingly
-        setBufferFeedback(feedback);
-        // Highlight entire row or column based on currentStep
-        if (currentStep === 'column') {
-          // Highlight entire row of clicked cell
-          const newHighlightedCells = Array.from({ length: matrix[row].length }, (_, col) => ({ row, column: col }));
-          setHighlightedCells(newHighlightedCells);
-        } else if (currentStep === 'row') {
-          // Highlight entire column of clicked cell
-          const newHighlightedCells = Array.from({ length: matrix.length }, (_, r) => ({ row: r, column }));
-          setHighlightedCells(newHighlightedCells);
-        }
-        
-      } else {
-        if (bufferCodes.length === 0) {
-          setBufferFeedback('// INVALID SELECTION. SELECT A CODE FROM THE FIRST ROW');
-          return;
-        }
-        if (currentStep === 'row') {
-          setBufferFeedback('// INVALID SELECTION. SELECT A CODE IN THE ACTIVE ROW');
+  
+        // Check if any daemon sequence is solved
+        const solvedDaemon = state.daemons.find(daemon =>
+          daemon.sequence.every((char, index) =>
+            newBufferCodes[index] === char
+          )
+        );
+  
+        if (solvedDaemon) {
+          const verifiedDaemons = verifyDaemons(newBufferCodes, state.daemons);
+          const newInstalledDaemonNames = verifiedDaemons.map(daemon => daemon.name).join(", ");
+          installedDaemonNamesRef.current = newInstalledDaemonNames;
+  
+          dispatch({
+            type: 'installVerifiedDaemons',
+            payload: {
+              ...state,
+              bufferCodes: newBufferCodes,
+              bufferFeedback: "// UPLOAD COMPLETE",
+              installedDaemonNames: `// INSTALLED DAEMONS: ${newInstalledDaemonNames}`,
+              highlightedDaemonIndices: newHighlightedDaemonIndices,
+              currentStep: state.currentStep === 'row' ? 'column' : 'row',
+              currentPosition: { row, column },
+            }
+          });
         } else {
-          setBufferFeedback('// INVALID SELECTION. SELECT A CODE IN THE ACTIVE COLUMN')
+          // Update state for normal buffer code addition
+          dispatch({
+            type: 'updateBufferCodes',
+            payload: {
+              ...state,
+              bufferCodes: newBufferCodes,
+              bufferFeedback: feedback,
+              currentStep: state.currentStep === 'row' ? 'column' : 'row',
+              currentPosition: { row, column },
+              highlightedDaemonIndices: newHighlightedDaemonIndices,
+              highlightedCells: state.currentStep === 'column'
+                ? Array.from({ length: state.matrix[row].length }, (_, col) => ({ row, column: col }))
+                : Array.from({ length: state.matrix.length }, (_, r) => ({ row: r, column })),
+            }
+          });
         }
+  
+      } else {
+        let feedback = "// INVALID SELECTION";
+        if (state.bufferCodes.length === 0) {
+          feedback += ". SELECT A CODE IN THE FIRST ROW";
+        } else {
+          feedback += state.currentStep === 'row' ? ". SELECT A CODE IN THE ACTIVE ROW" : ". SELECT A CODE IN THE ACTIVE COLUMN";
+        }
+        dispatch({
+          type: 'updateBufferCodes',
+          payload: { ...state, bufferFeedback: feedback }
+        });
       }
     },
-    [bufferCodes, currentPosition, currentStep, daemons, highlightedDaemonIndices, matrix]
+    [state, bufferSize]
   );
+
   ///////////////////////////////////////////////////////////////////////////////
   const handleCellHover = useCallback(
     (position: Position) => {
-      // Clear previous highlighted cells
-      setHighlightedCells([]);
-  
-      if (currentStep === 'column') {
-        // Highlight entire row of hovered cell
-        for (let col = 0; col < matrix[position.row].length; col++) {
-          setHighlightedCells(prevCells => [...prevCells, { row: position.row, column: col }]);
-        }
-      } else if (currentStep === 'row') {
-        // Highlight entire column of hovered cell
-        for (let row = 0; row < matrix.length; row++) {
-          setHighlightedCells(prevCells => [...prevCells, { row: row, column: position.column }]);
-        }
-      }
+      const newHighlightedCells = state.currentStep === 'column'
+        ? Array.from({ length: state.matrix[position.row].length }, (_, col) => ({ row: position.row, column: col }))
+        : Array.from({ length: state.matrix.length }, (_, row) => ({ row, column: position.column }));
+
+      dispatch({
+        type: 'updateBufferCodes',
+        payload: { ...state, highlightedCells: newHighlightedCells }
+      });
     },
-    [currentStep, matrix]
+    [state]
   );
 
   ///////////////////////////////////////////////////////////////////////////////
-  const uploadVerifiedDaemons = useCallback(() => {
-    // If buffer is empty, do nothing
-    if (bufferCodes.length === 0) {
-      setBufferFeedback("// BUFFER IS EMPTY, SELECT CODES TO UPLOAD DAEMONS");
-      return;
-    }
+  const areAllDaemonsInstalled = (state: GameState): boolean => {
+    // Extract daemon names from state.daemons
+    const daemonNames = state.daemons.map(daemon => daemon.name);
+    
+    // Split installedDaemonNames by commas and trim whitespaces
+    const installedNames = state.installedDaemonNames
+      .replace('// INSTALLED DAEMONS:', '') // Remove the initial prefix
+      .split(',')
+      .map(name => name.trim());
+    
+    // Check if every daemon name exists in installedNames
+    return daemonNames.every(name => installedNames.includes(name));
+  };
 
-    // verifyDaemons returns an array of solved Daemon objects
-    const verifiedDaemons = verifyDaemons(bufferCodes, daemons);
+  ///////////////////////////////////////////////////////////////////////////////
+  // Calculate the dimensions of the grid
+  const cellSize = 64; // 64px for each cell
+  const gridWidth = gridSize * cellSize;
+  const gridHeight = gridSize * cellSize;
+  const gridContainerWidth = gridWidth + 36;
 
-    if (verifiedDaemons.length === 0 && uploadedDaemonNamesRef.current === "") {
-      setBufferFeedback("// UPLOAD DENIED, NO DAEMONS SOLVED");
-      return;
-    }
-
-    // If the user hasn't solved another Daemon, deny upload
-    if (verifiedDaemons.length === 0 && uploadedDaemonNamesRef.current !== "") {
-      setBufferFeedback("// UPLOAD DENIED, NO ADDITIONAL DAEMONS SOLVED");
-      return;
-    }
-
-    if (bufferCodes.length === bufferSize) {
-      setHighlightedDaemonIndices([]);
-    }
-
-    // Extract Daemon names
-    const newUploadedDaemonNames = verifiedDaemons
-      .map((daemon) => daemon.name)
-      .join(", ");
-    // Update the ref with new names
-    uploadedDaemonNamesRef.current +=
-      (uploadedDaemonNamesRef.current ? ", " : "") + newUploadedDaemonNames;
-    // Filter out uploaded Daemons from the remaining daemons
-    const remainingDaemons = daemons.filter(
-      (daemon) => !verifiedDaemons.includes(daemon)
-    );
-    // Update Daemon's state with remaining daemons
-    setDaemons(remainingDaemons);
-    setBufferFeedback("// UPLOAD COMPLETE");
-    setUploadedDaemonNames(
-      `// UPLOADED DAEMONS: ${uploadedDaemonNamesRef.current}`
-    );
-  }, [bufferCodes, daemons]);
   ///////////////////////////////////////////////////////////////////////////////
   return (
     <>
       <section className="flex flex-col min-h-screen bg-neutral-950 select-none">
-        {/* ///////////////////////////////////////////////////////////////////////////// */}
+        {/* /////////////////////////////////////////////////////////////////////////////// */}
         <div className="mt-80">
-          <h2
-            className={`font-orbitron tracking-wide text-2xl text-lime-200 text-center w-60 mx-auto p-4 ${
-              bufferCodes.length === bufferSize ? "text-red-600" : ""
-            }`}
-          >
-            Buffer : {bufferSize - bufferCodes.length}
-          </h2>
-          <div className="relative h-20 w-full">
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex">
-              {Array.from({ length: bufferSize }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`outline outline-2 outline-cyan-500 shadow-lg shadow-cyan-950 rounded-md px-4 py-4 m-2 text-cyan-400 w-16 h-16 flex justify-center items-center ${
-                    bufferCodes[index] ? "" : "opacity-20 shadow-none"
-                  }`}
-                >
-                  {bufferCodes[index] || ""}
+          {!areAllDaemonsInstalled(state) && (
+            <>
+              <h2 className={`font-orbitron tracking-wide text-2xl text-green-300 text-center w-60 mx-auto p-4
+                ${state.bufferCodes.length === bufferSize ? "text-red-500" : ""}
+              `}>
+                Buffer : {bufferSize - state.bufferCodes.length}
+              </h2>
+              <div className="relative h-20 w-full">
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex">
+                  {Array.from({ length: bufferSize }).map((_, index) => (
+                    <div
+                      key={index}
+                      className={`outline outline-2 outline-teal-300 shadow-lg shadow-teal-950 rounded-md px-4 py-4 m-2 text-teal-300 w-16 h-16 flex justify-center items-center ${state.bufferCodes[index] ? "" : "opacity-20 shadow-none"}`}>
+                      {state.bufferCodes[index] || ""}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        {/* ///////////////////////////////////////////////////////////////////////////// */}
-        <div className="w-94 flex-col pt-4 font-rajdhani font-thin text-xxs text-lime-100 mx-auto">
-          <p
-            className={`tracking-widest ${
-              uploadedDaemonNames ? "text-lime-100" : "text-neutral-500"
-            }`}
-          >
-            {uploadedDaemonNames || "// UPLOADED DAEMONS: "}
-          </p>
-          <p
-            className={`tracking-wide pb-1 ${
-              bufferCodes.length >= bufferSize &&
-              bufferFeedback !== "// UPLOAD COMPLETE"
-                ? "text-red-600"
-                : ""
-            } ${
-              bufferFeedback === "// UPLOAD DENIED, NO DAEMONS SOLVED"
-                ? "text-red-600"
-                : ""
-            }`}
-          >
-            {bufferFeedback}
-          </p>
-        </div>
-        {/* ///////////////////////////////////////////////////////////////////////////// */}
-        <div className="text-center font-rajdhani font-medium tracking-widest text-2xl mx-auto outline outline-1 outline-lime-200 rounded-sm bg-neutral-950 p-4">
-        {matrix.map((row, rowIndex) => (
-          <div key={rowIndex} className="flex">
-            {row.map((code, columnIndex) => (
-              <div className="text-lime-200" key={columnIndex}>
-                <span
-                  className={`flex text-lime-200 cursor-pointer hover:text-cyan-300 hover:outline hover:outline-1 hover:outline-cyan-300 hover:shadow-lg hover:shadow-cyan-950 justify-evenly items-center w-16 h-16 
-                    ${highlightedCells.some(cell => cell.row === rowIndex && cell.column === columnIndex) ? 'bg-lime-300 bg-opacity-5' : ''}
-                    ${rowIndex === currentPosition.row && currentStep === 'row' ? 'bg-slate-500 bg-opacity-5' : ''}
-                    ${columnIndex === currentPosition.column && currentStep === 'column' ? 'bg-slate-500 bg-opacity-5' : ''}
-                  `}
-                  onClick={() => handleCellClick(rowIndex, columnIndex)}
-                  onMouseEnter={() => handleCellHover({ row: rowIndex, column: columnIndex })}
-                  onMouseMove={() => handleCellHover({ row: rowIndex, column: columnIndex })}
-                  onMouseLeave={() => setHighlightedCells([])}
-                >
-                  <div>{code}</div>
-                </span>
               </div>
-            ))}
-          </div>
-        ))}
-      </div>
-        {/* ///////////////////////////////////////////////////////////////////////////// */}
-        <div className="w-full">
-          {/* ///////////////////////////////////////////////////////////////////////////// */}
-          <div className="flex-col text-white h-24">
-            <div className="w-fit mx-auto my-4">
-              {daemons.map((daemon) => (
-                <div
-                  key={daemon.id}
-                  className={`flex font-rajdhani text-neutral-300 px-4 my-1
-                    ${
-                      daemon.isSolved
-                        ? "bg-lime-300 font-extrabold rounded-md"
-                        : ""
-                    }
-                  `}
-                >
-                  <p className="text-lg w-40 tracking-widest pr-5">
-                    {daemon.sequence.map((char, seqIndex) => (
-                      <span
-                        key={seqIndex}
-                        className={`pr-1
-                          ${
-                            highlightedDaemonIndices.some(
-                              (index) =>
-                                index.daemonId === daemon.id &&
-                                index.sequenceIndex === seqIndex
-                            )
-                              ? "text-lime-300"
-                              : ""
-                          }
-                          ${
-                            daemon.isSolved
-                              ? "font-extrabold text-neutral-950"
-                              : ""
-                          }
-                        `}
-                      >
-                        {char}
-                      </span>
+            </>
+          )}
+          {areAllDaemonsInstalled(state) && (
+              <>
+                <h2 className='font-orbitron tracking-wide text-2xl text-green-300 text-center w-full mx-auto p-4'>
+                  QUICKHACK SUCCESSFULL
+                </h2>
+                {!areAllDaemonsInstalled(state) && (
+                  <>
+                    <div className="relative h-20 w-full">
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex">
+                        {Array.from({ length: bufferSize }).map((_, index) => (
+                          <div
+                            key={index}
+                            className={`outline outline-2 outline-green-300 shadow-lg shadow-green-950 rounded-md px-4 py-4 m-2 text-green-300 w-16 h-16 flex justify-center items-center
+                            ${state.bufferCodes[index] ? "" : "opacity-20 shadow-none"}`}>
+                            {state.bufferCodes[index] || ""}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+                {areAllDaemonsInstalled(state) && (
+                  <>
+                    <div className="relative h-20 w-full">
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex"></div>
+                    </div>
+                  </>
+                )}
+              </>
+              )}
+        </div>
+        {/* /////////////////////////////////////////////////////////////////////////////// */}
+        <div 
+          className="flex-col pt-4 font-rajdhani font-thin text-xxs text-green-200 mx-auto"
+          style={{ width: `${gridContainerWidth}px` }}
+        >
+          {!areAllDaemonsInstalled(state) && (
+            <>
+              <p className={`tracking-widest ${state.installedDaemonNames ? "text-green-200" : "text-neutral-500"}`}>
+              {state.installedDaemonNames || "// INSTALLED DAEMONS: "}
+              </p>
+              <p 
+                className={`tracking-widest pb-1
+                  ${(state.bufferCodes.length >= bufferSize && state.bufferFeedback !== "// UPLOAD COMPLETE") ? "text-red-600" : ""}
+                  ${state.bufferFeedback === "// INVALID SELECTION. SELECT A CODE IN THE FIRST ROW" ? "text-red-500" : ""}
+                  ${state.bufferFeedback === "// INVALID SELECTION. SELECT A CODE IN THE ACTIVE ROW" ? "text-red-500" : ""}
+                  ${state.bufferFeedback === "// INVALID SELECTION. SELECT A CODE IN THE ACTIVE COLUMN" ? "text-red-500" : ""}
+                `}>
+                  {state.bufferFeedback}
+              </p>
+            </>
+          )}
+          {areAllDaemonsInstalled(state) && (
+            <>
+              <p 
+                className={`tracking-widest ${state.installedDaemonNames ? "text-green-200" : "text-neutral-500"}`}>
+                  {state.installedDaemonNames || "// INSTALLED DAEMONS: "}
+              </p>
+              <p 
+                className='tracking-widest pb-1'>
+                  // LOGIN REQUIREMENTS MET
+              </p>
+            </>
+          )}
+        </div>
+        {/* /////////////////////////////////////////////////////////////////////////////// */}
+        <div className="flex">
+          <div className={`text-center font-rajdhani font-medium tracking-widest text-2xl mx-auto outline outline-1 outline-green-300 rounded-sm bg-neutral-950 p-4 
+            ${areAllDaemonsInstalled(state) ? 'bg-neutral-950' : ''}
+            `}>
+            {!areAllDaemonsInstalled(state) && (
+              <>
+                {state.matrix.map((row, rowIndex) => (
+                  <div key={rowIndex} className="flex">
+                    {row.map((code, columnIndex) => (
+                      <div key={columnIndex}>
+                        <span
+                          className={`flex text-green-300 cursor-pointer hover:text-teal-300 hover:outline hover:outline-1 hover:outline-teal-700 hover:shadow-lg hover:shadow-teal-950 hover:rounded-sm justify-evenly items-center w-16 h-16
+                            ${state.highlightedCells.some(cell => cell.row === rowIndex && cell.column === columnIndex) ? 'bg-teal-200 bg-opacity-10' : ''}
+                            ${rowIndex === state.currentPosition.row && state.currentStep === 'row' ? 'bg-slate-500 bg-opacity-5' : ''}
+                            ${columnIndex === state.currentPosition.column && state.currentStep === 'column' ? 'bg-slate-500 bg-opacity-5' : ''}
+                          `}
+                            onClick={() => handleCellClick(rowIndex, columnIndex)}
+                            onMouseEnter={() => handleCellHover({ row: rowIndex, column: columnIndex })}
+                            onMouseMove={() => handleCellHover({ row: rowIndex, column: columnIndex })}
+                            onMouseLeave={() => dispatch({ type: 'updateBufferCodes', payload: { ...state, highlightedCells: [] } })}>
+                            {code}
+                        </span>
+                      </div>
                     ))}
-                  </p>
-                  <div className="text-left w-30 tracking-wide pl-5">
-                    <h3
-                      className={`text-lg
-                        ${
-                          daemon.isSolved
-                            ? "font-extrabold text-neutral-950"
-                            : ""
-                        }
-                      `}
-                    >
-                      {daemon.name}
-                    </h3>
+                  </div>
+                ))}
+              </>
+            )}
+            {areAllDaemonsInstalled(state) && (
+              <>
+                <div 
+                  className="flex"
+                  style={{ width: `${gridWidth}px`, height: `${gridHeight}px` }}>
+                  <div className="text-green-200 text-xs text-left font-light">
+                    <p>// ROOT</p>
+                    <p>// ACCESS_REQUEST</p>
+                    <p>// ACCESS_REQUEST_SUCCESS</p>
+                    <p>// COLLECTING_PACKET:_1.....................COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_2.....................COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_3.....................COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_4.....................COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_5.....................COMPLETE</p>
+                    <p>// LOGIN</p>
+                    <p>// LOGIN_SUCCESS</p>
+                    <p>//</p>
+                    <p>//</p>
+                    <p>//</p>
+                    <p>// UPLOAD_IN_PROGRESS</p>
+                    <p>// UPLOAD_COMPLETE!</p>
                   </div>
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
-          {/* ///////////////////////////////////////////////////////////////////////////// */}
-          <div className="flex flex-col mt-2">
+        </div>
+        {/* /////////////////////////////////////////////////////////////////////////////// */}
+        <div className="w-full">
+          {/* /////////////////////////////////////////////////////////////////////////////// */}
+          <div 
+            className="flex-col text-white mx-auto"
+            style={{ width: `${gridWidth}px` }}
+          >
+            {!areAllDaemonsInstalled(state) && (
+              <div className="w-full mx-auto my-6">
+                {state.daemons.map((daemon) => (
+                  <div 
+                    key={daemon.id} 
+                    className={`flex font-rajdhani text-neutral-300 px-4 my-1 justify-between
+                      ${daemon.isSolved ? "bg-green-300 font-extrabold rounded-md" : ""}`}
+                  >
+                    <div className="flex w-28">
+                      {daemon.isSolved ? (
+                        <div className="flex items-center">
+                          <span className="pr-1 font-extrabold text-neutral-950">INSTALLED</span>
+                        </div>
+                      ) : (
+                        daemon.sequence.map((char, seqIndex) => (
+                          <span 
+                            key={seqIndex} 
+                            className={`pr-1 flex items-center
+                              ${state.highlightedDaemonIndices.some(index => index.daemonId === daemon.id && index.sequenceIndex === seqIndex) ? "text-green-300" : ""}
+                              ${daemon.isSolved ? "font-extrabold text-neutral-950" : ""}
+                            `}
+                          >
+                            {char}
+                          </span>
+                        ))
+                      )}
+                    </div>
+                    <div className="tracking-wide">
+                      <h3 
+                        className={`text-lg w-28 text-center
+                          ${daemon.isSolved ? "font-extrabold text-neutral-950" : ""}`}>
+                            {daemon.name}
+                      </h3>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {areAllDaemonsInstalled(state) && (
+              <div 
+                className="w-full mx-auto my-6"
+                style={{ width: `${gridWidth}px` }}
+              >
+                {state.daemons.map((daemon) => (
+                  <div 
+                    key={daemon.id} 
+                    className={`flex font-rajdhani text-neutral-300 px-4 my-1 justify-between
+                      ${daemon.isSolved ? "bg-green-300 font-extrabold rounded-md animate-pulse" : ""}`}
+                  >
+                    <div className="flex items-center">
+                      <span className="pr-1 font-extrabold text-neutral-950">INSTALLED</span>
+                    </div>
+                    <div className="tracking-wide">
+                      <h3
+                        className={`text-lg w-28 text-center
+                        ${daemon.isSolved ? "font-extrabold text-neutral-950" : ""}`}>
+                        {daemon.name}
+                      </h3>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* /////////////////////////////////////////////////////////////////////////////// */}
+          <div className="flex flex-col">
             <button
-              className="rounded-md bg-red-900 text-sm font-orbitron font-bold py-3 px-6 min-w-fit max-w-fit self-center hover:bg-red-950 transition-colors duration-200 tracking-wide"
-              onClick={uploadVerifiedDaemons}
-            >
-              UPLOAD DAEMONS
-            </button>
-            <button
-              className="rounded-md outline outline-neutral-800 text-sm text-neutral-700 font-orbitron font-bold py-3 px-6 min-w-fit max-w-fit self-center mt-5 hover:outline-neutral-700 hover:text-neutral-500 transition-all duration-200 tracking-wide"
-              onClick={resetGame}
-            >
+              className="rounded-md outline outline-neutral-800 text-sm text-neutral-700 font-orbitron font-bold py-3 px-6 min-w-fit max-w-fit self-center hover:outline-neutral-700 hover:text-neutral-500 transition-all duration-200 tracking-wide"
+              onClick={resetGame}>
               RESET GAME
             </button>
           </div>
-          {/* ///////////////////////////////////////////////////////////////////////////// */}
+          {/* /////////////////////////////////////////////////////////////////////////////// */}
         </div>
-        {/* ///////////////////////////////////////////////////////////////////////////// */}
+        {/* /////////////////////////////////////////////////////////////////////////////// */}
       </section>
     </>
   );
