@@ -69,7 +69,7 @@ export function generateDaemons(matrix: string[][], bufferLength: number, daemon
   // Generate the first Daemon starting from the first row and ensure it's solvable
   let firstDaemonSequence: string[] | null = null;
   const firstRow = 0;
-  let daemonLength = Math.floor(Math.random() * (bufferLength - 2)) + 2;
+  let daemonLength = Math.floor(Math.random() * (bufferLength - 3)) + 2;
 
   while (firstDaemonSequence === null) {
     const startColumn = Math.floor(Math.random() * matrix[0].length);
@@ -88,7 +88,7 @@ export function generateDaemons(matrix: string[][], bufferLength: number, daemon
 
     while (sequence === null) {
       // Random length between 2 and bufferLength - 2
-      daemonLength = Math.floor(Math.random() * (bufferLength - 2)) + 2;
+      daemonLength = Math.floor(Math.random() * (bufferLength - 3)) + 2;
       const startRow = Math.floor(Math.random() * matrix.length);
       const startColumn = Math.floor(Math.random() * matrix[0].length);
 
@@ -119,11 +119,3 @@ export function generateDaemons(matrix: string[][], bufferLength: number, daemon
 
   return daemons;
 }
-
-// Codes based on difficulty? /////////////////////////////////////////////////////////////////
-
-// OG CODES : '1C', 'BD', '55', 'E9', '7A'
-
-// ALT CODES : '1A', '1B', '1C', '1D', '1E','3A', '3B', '3C', '3D', '3E', '5A', '5B', '5C', '5D', '5E','6A', '6B', '6C', '6D', '6E', '7A', '7B', '7C', '7D', '7E', 'AA', 'AB', 'AC', 'AD', 'AE', 'BA', 'BB', 'BC', 'BD', 'BE', 'CA', 'CB', 'CC', 'CD', 'CE', 'DA', 'DB', 'DC', 'DD', 'DE', 'EA', 'EB', 'EC', 'ED', 'EE', '11', '12', '13', '14', '15', '21', '22', '23', '24', '25', '31', '32', '33', '34', '35', '41', '42', '43', '44', '45', '51', '52', '53', '54', '55'
-
-// NO NUMS CODES : '1A', '1B', '1C', '1D', '1E', '1F', '1G', '1H', '3A', '3B', '3C', '3D', '3E', '3F', '3G', '3H', '5A', '5B', '5C', '5D', '5E' '5F', '5G', '5H', '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H', '9A', '9B', '9C', '9D', '9E', '9F', '9G', '9H', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF', 'AG', 'AH', 'BA', 'BB', 'BC', 'BD', 'BE', 'BF', 'BG', 'BH', 'CA', 'CB', 'CC', 'CD', 'CE', 'CF', 'CG', 'CH', 'DA', 'DB', 'DC', 'DD', 'DE', 'DF', 'DG', 'DH', 'EA', 'EB', 'EC', 'ED', 'EE', 'EF', 'EG', 'EH'

@@ -48,7 +48,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
 const BreachProtocolQuickhack: React.FunctionComponent = () => {
   const gridSize = 5; // nxn grid
   const bufferSize = 6; // Default buffer size
-  const daemonCount = 3; // Number of Daemons
+  const daemonCount = 1; // Number of Daemons
 
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const installedDaemonNamesRef = useRef<string>("");
@@ -327,19 +327,24 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
             {areAllDaemonsInstalled(state) && (
               <>
                 <div 
-                  className="flex"
+                  className="flex justify-center"
                   style={{ width: `${gridWidth}px`, height: `${gridHeight}px` }}>
-                  <div className="text-green-200 text-xs text-left font-light">
+                  <div className="flex-col text-green-200 text-xs text-left font-light w-full">
                     <p>// ROOT</p>
                     <p>// ACCESS_REQUEST</p>
                     <p>// ACCESS_REQUEST_SUCCESS</p>
-                    <p>// COLLECTING_PACKET:_1.....................COMPLETE</p>
-                    <p>// COLLECTING_PACKET:_2.....................COMPLETE</p>
-                    <p>// COLLECTING_PACKET:_3.....................COMPLETE</p>
-                    <p>// COLLECTING_PACKET:_4.....................COMPLETE</p>
-                    <p>// COLLECTING_PACKET:_5.....................COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_1...............COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_2...............COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_3...............COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_4...............COMPLETE</p>
+                    <p>// COLLECTING_PACKET:_5...............COMPLETE</p>
                     <p>// LOGIN</p>
                     <p>// LOGIN_SUCCESS</p>
+                    <p>//</p>
+                    <p>//</p>
+                    <p>//</p>
+                    <p>//</p>
+                    <p>//</p>
                     <p>//</p>
                     <p>//</p>
                     <p>//</p>
