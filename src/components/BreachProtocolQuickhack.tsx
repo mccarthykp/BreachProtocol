@@ -48,7 +48,7 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
 const BreachProtocolQuickhack: React.FunctionComponent = () => {
   const gridSize = 5; // nxn grid
   const bufferSize = 6; // Default buffer size
-  const daemonCount = 1; // Number of Daemons
+  const daemonCount = 3; // Number of Daemons
 
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const installedDaemonNamesRef = useRef<string>("");
@@ -91,7 +91,7 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
         return;
       }
   
-      if (isValidSelection({ row, column }, state.currentStep, state.currentPosition)) {
+      if (isValidSelection({ row, column }, state.currentStep, state.currentPosition, state.matrix)) {
         const selectedCode = state.matrix[row][column];
         const newBufferCodes = addToBuffer(state.bufferCodes, selectedCode);
         const newHighlightedDaemonIndices = updateHighlightedDaemonIndices(
@@ -100,6 +100,13 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
           state.highlightedDaemonIndices
         );
         const feedback = updateBufferFeedback(newBufferCodes, bufferSize);
+  
+        // Create a new matrix with the selected cell changed
+        const newMatrix = state.matrix.map((matrixRow, rowIndex) => 
+          matrixRow.map((code, columnIndex) => 
+            rowIndex === row && columnIndex === column ? "[ ]" : code
+          )
+        );
   
         // Check if any daemon sequence is solved
         const solvedDaemon = state.daemons.find(daemon =>
@@ -123,6 +130,7 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
               highlightedDaemonIndices: newHighlightedDaemonIndices,
               currentStep: state.currentStep === 'row' ? 'column' : 'row',
               currentPosition: { row, column },
+              matrix: newMatrix, // Update the matrix state here
             }
           });
         } else {
@@ -139,10 +147,10 @@ const BreachProtocolQuickhack: React.FunctionComponent = () => {
               highlightedCells: state.currentStep === 'column'
                 ? Array.from({ length: state.matrix[row].length }, (_, col) => ({ row, column: col }))
                 : Array.from({ length: state.matrix.length }, (_, r) => ({ row: r, column })),
+              matrix: newMatrix, // Update the matrix state here
             }
           });
         }
-  
       } else {
         let feedback = "// INVALID SELECTION";
         if (state.bufferCodes.length === 0) {
