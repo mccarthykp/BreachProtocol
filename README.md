@@ -18,7 +18,7 @@ The buffer is the maximum number of characters you can choose in the matrix. You
 
 ## Try it out
 
-The project is live [here](https://tinyurl.com/8976c3kkl).
+The project is live [here](https://mccarthykp.github.io/BreachProtocol/).
 
 If you find any **errors** :no_entry:, please report them to **portfolio.errors@proton.me**
 
